@@ -12,6 +12,23 @@ AutoYT é uma solução completa e automatizada para transformar vídeos longos 
 - 📈 **Dashboard Web**: Interface moderna em React para gerenciar canais, editar prompts e monitorar o status dos clips.
 - 📅 **Agendamento Inteligente**: Sistema de cron integrado para processar canais e realizar uploads diários automaticamente.
 - 🔐 **OAuth2 Integrado**: Autorização simplificada do YouTube diretamente pelo navegador.
+- 🌍 **Multi-idioma**: Suporte completo para Português (BR) e Inglês em toda a interface.
+
+## 📸 Screenshots
+
+Aqui estão algumas prévias da interface do AutoYT:
+
+| Dashboard | Canais |
+|:---:|:---:|
+| ![Dashboard](imagens/00.png) | ![Canais](imagens/01.png) |
+
+| Clips | Prompt LLM |
+|:---:|:---:|
+| ![Clips](imagens/02.png) | ![Prompt](imagens/03.png) |
+
+| Configurações | Logs |
+|:---:|:---:|
+| ![Configurações](imagens/04.png) | ![Logs](imagens/05.png) |
 
 ## 🛠️ Tech Stack
 
