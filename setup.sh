@@ -36,7 +36,9 @@ elif [[ "$OS" == "Darwin" ]]; then
         echo "[ERROR] Homebrew required. Install: https://brew.sh"
         exit 1
     fi
-    brew install ffmpeg curl git python3
+    # Skip ffmpeg if already installed (may come from a different tap)
+    command -v ffmpeg &>/dev/null || brew install ffmpeg
+    brew install curl git python3
 fi
 
 # ── 4. Python venv ────────────────────────────────────────────────────────────
