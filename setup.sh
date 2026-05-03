@@ -26,7 +26,21 @@ else
     GPU_BACKEND="cpu"
 fi
 
-# ── 3. System dependencies ────────────────────────────────────────────────────
+# ── 3. .env setup — must happen BEFORE docker compose ─────────────────────────
+if [ ! -f ".env" ]; then
+    MINIO_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9_@#' < /dev/urandom | head -c 24)"
+    sed "s/sua_senha_minio_aqui/$MINIO_PASS/" .env.example > .env
+    echo "[ENV] .env created with random MinIO password."
+fi
+
+# Stamp GPU_BACKEND into .env
+if grep -q "^GPU_BACKEND=" .env; then
+    sed -i.bak "s/^GPU_BACKEND=.*/GPU_BACKEND=$GPU_BACKEND/" .env && rm -f .env.bak
+else
+    echo "GPU_BACKEND=$GPU_BACKEND" >> .env
+fi
+
+# ── 4. System dependencies ────────────────────────────────────────────────────
 if [[ "$OS" == "Linux" ]]; then
     echo "[SYS] Installing system packages..."
     sudo apt-get update -qq
@@ -41,7 +55,7 @@ elif [[ "$OS" == "Darwin" ]]; then
     brew install curl git python3
 fi
 
-# ── 4. Python venv ────────────────────────────────────────────────────────────
+# ── 5. Python venv ────────────────────────────────────────────────────────────
 if [ ! -d "venv" ]; then
     echo "[PY] Creating virtualenv..."
     python3 -m venv venv
@@ -49,7 +63,7 @@ fi
 source venv/bin/activate
 pip install --upgrade pip -q
 
-# ── 5. Python requirements ────────────────────────────────────────────────────
+# ── 6. Python requirements ────────────────────────────────────────────────────
 echo "[PY] Installing requirements..."
 pip install -r requirements.txt -q
 
@@ -70,7 +84,7 @@ if [[ "$INSTALL_LLAMA" =~ ^[Yy]$ ]]; then
     echo "[LLAMA] Done."
 fi
 
-# ── 6. Frontend build ─────────────────────────────────────────────────────────
+# ── 7. Frontend build ─────────────────────────────────────────────────────────
 echo "[FE] Installing frontend dependencies..."
 cd frontend
 npm install --silent
@@ -78,7 +92,7 @@ echo "[FE] Building frontend..."
 npm run build --silent
 cd ..
 
-# ── 7. Start infrastructure ───────────────────────────────────────────────────
+# ── 8. Start infrastructure ───────────────────────────────────────────────────
 echo "[DOCKER] Starting MongoDB and MinIO..."
 docker compose up -d
 
@@ -94,33 +108,30 @@ until docker inspect autoyt-minio --format='{{.State.Health.Status}}' 2>/dev/nul
 done
 echo " ready."
 
-# ── 8. .env setup (before docker bucket creation — needs the password) ────────
-if [ ! -f ".env" ]; then
-    MINIO_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9_@#' < /dev/urandom | head -c 24)"
-    sed "s/sua_senha_minio_aqui/$MINIO_PASS/" .env.example > .env
-    echo "[ENV] .env criado com senha MinIO aleatória."
-fi
-
-# Read MinIO creds from .env for bucket creation
+# ── 9. Create MinIO bucket ────────────────────────────────────────────────────
 _MINIO_USER="$(grep '^MINIO_ACCESS_KEY=' .env | cut -d= -f2)"
 _MINIO_PASS="$(grep '^MINIO_SECRET_KEY=' .env | cut -d= -f2)"
 
-# ── 9. Create MinIO bucket ────────────────────────────────────────────────────
 echo "[MINIO] Creating bucket 'automation-yt'..."
-docker run --rm --network=host minio/mc:latest \
-    alias set local http://localhost:9100 "$_MINIO_USER" "$_MINIO_PASS" --quiet 2>/dev/null || true
-docker run --rm --network=host minio/mc:latest \
-    mb local/automation-yt --ignore-existing --quiet 2>/dev/null || true
+if [[ "$OS" == "Darwin" ]]; then
+    # On macOS --network=host doesn't work in Docker Desktop; use host.docker.internal
+    docker run --rm \
+        minio/mc:latest \
+        alias set local http://host.docker.internal:9100 "$_MINIO_USER" "$_MINIO_PASS" --quiet 2>/dev/null || true
+    docker run --rm \
+        minio/mc:latest \
+        mb local/automation-yt --ignore-existing --quiet 2>/dev/null || true
+else
+    docker run --rm --network=host \
+        minio/mc:latest \
+        alias set local http://localhost:9100 "$_MINIO_USER" "$_MINIO_PASS" --quiet 2>/dev/null || true
+    docker run --rm --network=host \
+        minio/mc:latest \
+        mb local/automation-yt --ignore-existing --quiet 2>/dev/null || true
+fi
 echo "[MINIO] Bucket ready."
 
-# Update GPU_BACKEND in .env
-if grep -q "^GPU_BACKEND=" .env; then
-    sed -i.bak "s/^GPU_BACKEND=.*/GPU_BACKEND=$GPU_BACKEND/" .env && rm -f .env.bak
-else
-    echo "GPU_BACKEND=$GPU_BACKEND" >> .env
-fi
-
-# Create backend __init__.py
+# ── 10. Final touches ─────────────────────────────────────────────────────────
 touch backend/__init__.py
 touch backend/pipeline/__init__.py
 touch backend/routers/__init__.py
