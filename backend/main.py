@@ -62,7 +62,7 @@ if _dist.exists():
         app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
-    async def spa(_: str):
+    async def spa(full_path: str):
         return FileResponse(str(_dist / "index.html"))
 else:
     @app.get("/", include_in_schema=False)
