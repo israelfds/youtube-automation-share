@@ -78,6 +78,9 @@ export default function Channels() {
   const [msg, setMsg] = useState("");
   const [videoModal, setVideoModal] = useState<Channel | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
+  const [globalVideoModal, setGlobalVideoModal] = useState(false);
+  const [selectedChannelId, setSelectedChannelId] = useState<string>("");
+  const [maxClips, setMaxClips] = useState(6);
 
   const load = () =>
     api.get<Channel[]>("/api/channels").then(setChannels).catch(console.error);
@@ -144,9 +147,30 @@ export default function Channels() {
     setRunningId(videoModal.id);
     setMsg("");
     try {
-      await api.post(`/api/channels/${videoModal.id}/run`, { video_url: videoUrl.trim() });
+      await api.post(`/api/channels/${videoModal.id}/run`, { 
+        video_url: videoUrl.trim(),
+        max_clips: maxClips 
+      });
       setMsg(`Pipeline iniciado para vídeo: ${videoUrl.trim()}`);
       setVideoModal(null);
+    } catch (e: unknown) {
+      setMsg(`Erro: ${e}`);
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  const runGlobalVideo = async () => {
+    if (!videoUrl.trim()) return;
+    setRunningId("manual");
+    setMsg("");
+    try {
+      await api.post(`/api/channels/manual/run`, { 
+        video_url: videoUrl.trim(),
+        max_clips: maxClips 
+      });
+      setMsg(`Pipeline iniciado para vídeo: ${videoUrl.trim()}`);
+      setGlobalVideoModal(false);
     } catch (e: unknown) {
       setMsg(`Erro: ${e}`);
     } finally {
@@ -169,12 +193,23 @@ export default function Channels() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Canais</h1>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-lg"
-        >
-          <Plus size={15} /> Adicionar canal
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setVideoUrl("");
+              setGlobalVideoModal(true);
+            }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg"
+          >
+            <Play size={15} /> Adicionar vídeo
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-lg"
+          >
+            <Plus size={15} /> Adicionar canal
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -271,6 +306,16 @@ export default function Channels() {
               autoFocus
             />
           </Field>
+          <Field label="Quantidade máxima de clips">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              className={inp}
+              value={maxClips}
+              onChange={(e) => setMaxClips(Number(e.target.value))}
+            />
+          </Field>
           <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => setVideoModal(null)}
@@ -281,6 +326,52 @@ export default function Channels() {
             <button
               onClick={runVideo}
               disabled={!videoUrl.trim() || runningId === videoModal.id}
+              className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
+            >
+              Processar
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {globalVideoModal && (
+        <Modal
+          title="Processar vídeo específico"
+          onClose={() => setGlobalVideoModal(false)}
+        >
+          <p className="text-xs text-gray-400 mb-4">
+            Cole a URL de um vídeo do YouTube. O pipeline usará as configurações padrão do sistema.
+          </p>
+          <Field label="URL do vídeo">
+            <input
+              className={inp}
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runGlobalVideo()}
+              autoFocus
+            />
+          </Field>
+          <Field label="Quantidade máxima de clips">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              className={inp}
+              value={maxClips}
+              onChange={(e) => setMaxClips(Number(e.target.value))}
+            />
+          </Field>
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => setGlobalVideoModal(false)}
+              className="px-4 py-2 text-sm rounded-lg bg-gray-800 hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={runGlobalVideo}
+              disabled={!videoUrl.trim() || runningId === "manual"}
               className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
             >
               Processar

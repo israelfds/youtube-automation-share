@@ -1,5 +1,6 @@
 import random
 import tempfile
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -46,14 +47,14 @@ async def run_pipeline(
     # ── 1. Fetch video(s) ─────────────────────────────────────────────────────
     if video_url:
         log.info(f"Pipeline start → specific video: {video_url}")
-        video = fetch_single_video(video_url)
+        video = await asyncio.to_thread(fetch_single_video, video_url)
         if not video:
             log.warning(f"Could not fetch video info for {video_url}")
             return []
         sample = [video]
     else:
         log.info(f"Pipeline start → {channel_url}")
-        videos = fetch_channel_videos(channel_url, max_videos=30)
+        videos = await asyncio.to_thread(fetch_channel_videos, channel_url, 30)
         if not videos:
             log.warning(f"No videos found for {channel_url}")
             return []
@@ -68,7 +69,7 @@ async def run_pipeline(
         title_short = video["title"][:55]
         log.info(f"Analyzing: {title_short}")
 
-        entries = fetch_transcript(video["url"])
+        entries = await asyncio.to_thread(fetch_transcript, video["url"])
         if not entries:
             log.warning(f"No transcript — skipping {video['id']}")
             continue
@@ -139,7 +140,9 @@ async def run_pipeline(
             if vid_id not in video_files:
                 log.info(f"Downloading {vid_id} …")
                 try:
-                    video_files[vid_id] = download_video(video["url"], str(tmp), vid_id)
+                    video_files[vid_id] = await asyncio.to_thread(
+                        download_video, video["url"], str(tmp), vid_id
+                    )
                 except Exception as e:
                     log.error(f"Download failed {vid_id}: {e}")
                     continue
@@ -151,21 +154,22 @@ async def run_pipeline(
                 log.info(f"Cutting '{candidate.title[:45]}' ({fmt}, score={candidate.score:.0f})")
 
                 audio_path = str(tmp / f"{slug}.wav")
-                extract_audio(src, audio_path, candidate.start, candidate.end)
+                await asyncio.to_thread(extract_audio, src, audio_path, candidate.start, candidate.end)
 
                 words = None
                 try:
-                    words = transcribe_audio(
+                    words = await asyncio.to_thread(
+                        transcribe_audio,
                         audio_path,
-                        model_size=whisper_model,
-                        device_override=whisper_device_override,
+                        whisper_model,
+                        whisper_device_override,
                     )
                     log.info(f"Whisper: {len(words)} words")
                 except Exception as e:
                     log.warning(f"Whisper failed: {e} — using YT transcript fallback")
 
                 raw_path = str(tmp / f"{slug}_raw.mp4")
-                cut_clip(src, raw_path, candidate.start, candidate.end, fmt=fmt)
+                await asyncio.to_thread(cut_clip, src, raw_path, candidate.start, candidate.end, fmt=fmt)
 
                 sub_path = _generate_subtitle(
                     tmp, slug, fmt, words, entries, candidate.start, candidate.end
@@ -173,19 +177,23 @@ async def run_pipeline(
 
                 final_path = str(tmp / f"{slug}.mp4")
                 if sub_path:
-                    burn_subtitles(raw_path, sub_path, final_path)
+                    await asyncio.to_thread(burn_subtitles, raw_path, sub_path, final_path)
                 else:
                     log.warning(f"No subtitles for {slug}")
                     final_path = raw_path
 
                 minio_key = f"clips/{slug}.mp4"
                 s3 = get_client()
-                s3.upload_file(
-                    final_path,
-                    settings.minio_bucket,
-                    minio_key,
-                    ExtraArgs={"ContentType": "video/mp4"},
-                )
+                
+                def _upload():
+                    s3.upload_file(
+                        final_path,
+                        settings.minio_bucket,
+                        minio_key,
+                        ExtraArgs={"ContentType": "video/mp4"},
+                    )
+                
+                await asyncio.to_thread(_upload)
                 log.info(f"Uploaded to MinIO: {minio_key}")
 
                 doc = {
@@ -193,13 +201,14 @@ async def run_pipeline(
                     "channel_url": channel_url,
                     "minio_key": minio_key,
                     "title": candidate.title,
+                    "description": candidate.description,
                     "source_title": video["title"],
                     "source_url": video["url"],
                     "score": candidate.score,
                     "duration": round(candidate.end - candidate.start, 2),
                     "format": fmt,
                     "youtube_id": None,
-                    "status": "ready",
+                    "status": "manual" if video_url else "ready",
                     "created_at": datetime.now(timezone.utc),
                 }
                 result = await db.clips.insert_one(doc)
@@ -257,8 +266,8 @@ async def upload_pending(
 
                 vid_id = upload_video(
                     video_path=local_path,
-                    title=clip["title"],
-                    description=f"Clipe de: {clip['source_title']}\n{clip['source_url']}",
+                    title=clip["title"].replace('"', ''),
+                    description=clip.get("description", "Cortado com AutoYT"),
                     tags=tags,
                     client_id=client_id,
                     client_secret=client_secret,

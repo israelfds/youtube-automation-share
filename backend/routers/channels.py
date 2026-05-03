@@ -64,15 +64,27 @@ async def delete_channel(channel_id: str) -> None:
 
 class RunRequest(BaseModel):
     video_url: Optional[str] = None
+    max_clips: Optional[int] = None
 
 
 @router.post("/{channel_id}/run")
 async def run_now(channel_id: str, body: RunRequest = RunRequest()) -> dict:
     """Trigger full pipeline for this channel immediately. Optionally process a specific video."""
     db = get_db()
-    ch = await db.channels.find_one({"_id": ObjectId(channel_id)})
-    if not ch:
-        raise HTTPException(404, "Channel not found")
+    app_cfg = await db.app_settings.find_one({"_id": "main"}) or {}
+
+    if channel_id == "manual":
+        ch = {
+            "url": body.video_url or "",
+            "formats": ["short", "long"],
+            "max_clips": body.max_clips or app_cfg.get("max_clips_per_run", 6)
+        }
+    else:
+        ch = await db.channels.find_one({"_id": ObjectId(channel_id)})
+        if not ch:
+            raise HTTPException(404, "Channel not found")
+        if body.max_clips:
+            ch["max_clips"] = body.max_clips
 
     app_cfg = await db.app_settings.find_one({"_id": "main"}) or {}
 

@@ -143,26 +143,13 @@ const STEPS = [
     title: "Gerar Refresh Token (autorizar canal)",
     content: (
       <div className="space-y-3 text-sm text-gray-300">
-        <p>
-          Com o Client ID e Secret em mãos, execute o script de autorização no terminal:
-        </p>
-        <div className="bg-gray-950 border border-gray-700 rounded-lg p-3 font-mono text-xs text-green-400 flex items-start gap-2">
-          <Terminal size={13} className="mt-0.5 shrink-0 text-gray-500" />
-          <div>
-            <div className="text-gray-500"># Na pasta do projeto:</div>
-            <div>cd ~/workspace/automation-youtube</div>
-            <div>source venv/bin/activate</div>
-            <div>python scripts/get_yt_token.py</div>
-          </div>
-        </div>
-        <ol className="list-decimal list-inside space-y-1 text-gray-300">
-          <li>O script vai pedir Client ID e Client Secret</li>
-          <li>Um navegador abre para você <strong>autorizar com a conta do canal</strong></li>
-          <li>Após autorizar, o terminal imprime o <strong>Refresh Token</strong></li>
-          <li>Cole o token no campo abaixo e clique em <strong>Salvar</strong></li>
+        <ol className="list-decimal list-inside space-y-1 text-gray-400 mt-2">
+          <li>Certifique-se de ter salvo o <strong>Client ID</strong> e <strong>Client Secret</strong> no formulário abaixo!</li>
+          <li>Clique no botão vermelho <strong>Autorizar Canal do YouTube</strong> (abaixo do formulário).</li>
+          <li>Autorize o aplicativo com a conta do seu canal do YouTube.</li>
         </ol>
         <p className="text-yellow-500 text-xs">
-          ⚠ O refresh token autoriza upload em nome do canal que fez login. Use a conta correta.
+          ⚠ Autorize com a conta correta do canal. Lembre-se de adicionar a URI <code className="bg-gray-800 px-1 rounded">http://localhost:7070/api/settings/youtube/callback</code> nos "URIs de redirecionamento autorizados" no Google Cloud (passo 4).
         </p>
       </div>
     ),
@@ -230,6 +217,17 @@ export default function Settings() {
 
   useEffect(() => {
     api.get<Record<string, unknown>>("/api/settings").then(setCfg).catch(console.error);
+    
+    // Check for OAuth callback status
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("youtube_auth") === "success") {
+      alert("YouTube autorizado com sucesso! Refresh token salvo.");
+      // Clean url
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get("youtube_auth") === "error") {
+      alert(`Erro na autorização do YouTube: ${params.get("msg")}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const set = (k: string, v: unknown) => setCfg((c) => ({ ...c, [k]: v }));
@@ -251,8 +249,14 @@ export default function Settings() {
         "/api/settings/test-youtube"
       );
       setYtStatus(r.ok ? "ok" : "fail");
-    } catch {
+      if (r.ok) {
+        alert("✅ Sucesso! As credenciais do YouTube estão válidas e prontas para uso.");
+      } else {
+        alert(`❌ Falha nas credenciais: ${r.error || "Erro desconhecido."}`);
+      }
+    } catch (e: any) {
       setYtStatus("fail");
+      alert(`❌ Erro ao testar YouTube: ${e.message || e}`);
     }
     setTimeout(() => setYtStatus("idle"), 4000);
   };
@@ -442,7 +446,7 @@ export default function Settings() {
 
               <Field
                 label="Refresh Token"
-                hint="Gerado pelo script scripts/get_yt_token.py"
+                hint="Gerado automaticamente após autorizar com o botão acima."
               >
                 <input
                   type="password"
@@ -450,22 +454,31 @@ export default function Settings() {
                   placeholder="1//••••••••"
                   value={String(s("youtube_refresh_token"))}
                   onChange={(e) => set("youtube_refresh_token", e.target.value)}
+                  readOnly
                 />
               </Field>
 
-              <button
-                onClick={testYt}
-                disabled={ytStatus === "loading"}
-                className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg"
-              >
-                {ytStatus === "loading" && <Loader size={14} className="animate-spin" />}
-                {ytStatus === "ok" && <CheckCircle size={14} className="text-green-400" />}
-                {ytStatus === "fail" && <XCircle size={14} className="text-red-400" />}
-                {ytStatus === "idle" && "Testar credenciais"}
-                {ytStatus === "loading" && "Testando..."}
-                {ytStatus === "ok" && "Credenciais válidas"}
-                {ytStatus === "fail" && "Credenciais inválidas"}
-              </button>
+              <div className="flex flex-wrap gap-3 mt-2">
+                <a
+                  href="/api/settings/youtube/auth"
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-lg font-medium"
+                >
+                  Autorizar Canal do YouTube
+                </a>
+                <button
+                  onClick={testYt}
+                  disabled={ytStatus === "loading"}
+                  className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg"
+                >
+                  {ytStatus === "loading" && <Loader size={14} className="animate-spin" />}
+                  {ytStatus === "ok" && <CheckCircle size={14} className="text-green-400" />}
+                  {ytStatus === "fail" && <XCircle size={14} className="text-red-400" />}
+                  {ytStatus === "idle" && "Testar credenciais"}
+                  {ytStatus === "loading" && "Testando..."}
+                  {ytStatus === "ok" && "Credenciais válidas"}
+                  {ytStatus === "fail" && "Credenciais inválidas"}
+                </button>
+              </div>
             </div>
           </>
         )}

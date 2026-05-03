@@ -3,32 +3,13 @@ import { api } from "../api";
 
 const DEFAULT = `Você é um editor de vídeo especializado em criar cortes virais de podcasts.
 
-Analise a transcrição abaixo e identifique os melhores momentos para criar clips de {min_duration}s a {max_duration}s.
-
 Critérios de seleção:
 - Histórias pessoais impactantes ou revelações
 - Debates acalorados ou opiniões fortes e controversas
 - Momentos de humor ou emoção intensa
 - Insights valiosos ou conselhos práticos
 - Frases de efeito ou momentos "quotável"
-- Início e fim devem ser naturais (nunca no meio de uma frase)
-
-Transcrição (formato [MM:SS] texto):
-{transcript}
-
-Retorne APENAS JSON válido, sem texto adicional:
-{
-  "clips": [
-    {
-      "start": <segundos float>,
-      "end": <segundos float>,
-      "title": "<título chamativo em português, max 80 chars>",
-      "score": <0-100>
-    }
-  ]
-}
-
-Máximo {max_clips} clips, ordenados do maior para o menor score.`;
+- Início e fim devem ser naturais (nunca no meio de uma frase)`;
 
 export default function Prompt() {
   const [prompt, setPrompt] = useState("");
@@ -78,12 +59,8 @@ export default function Prompt() {
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 mb-3">
-        Variáveis disponíveis:{" "}
-        <code className="bg-gray-800 px-1 rounded">{"{{transcript}}"}</code>{" "}
-        <code className="bg-gray-800 px-1 rounded">{"{{min_duration}}"}</code>{" "}
-        <code className="bg-gray-800 px-1 rounded">{"{{max_duration}}"}</code>{" "}
-        <code className="bg-gray-800 px-1 rounded">{"{{max_clips}}"}</code>
+      <p className="text-xs text-gray-400 mb-3">
+        Defina a persona do LLM e os critérios de seleção. As instruções técnicas (limites de duração, JSON e injeção da transcrição) serão adicionadas automaticamente pelo pipeline e não podem ser editadas aqui.
       </p>
 
       {loading ? (
