@@ -1,8 +1,10 @@
 import asyncio
 from datetime import datetime, timezone
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import ChannelCreate
@@ -60,9 +62,13 @@ async def delete_channel(channel_id: str) -> None:
     await scheduler.sync_jobs()
 
 
+class RunRequest(BaseModel):
+    video_url: Optional[str] = None
+
+
 @router.post("/{channel_id}/run")
-async def run_now(channel_id: str) -> dict:
-    """Trigger full pipeline for this channel immediately."""
+async def run_now(channel_id: str, body: RunRequest = RunRequest()) -> dict:
+    """Trigger full pipeline for this channel immediately. Optionally process a specific video."""
     db = get_db()
     ch = await db.channels.find_one({"_id": ObjectId(channel_id)})
     if not ch:
@@ -71,7 +77,7 @@ async def run_now(channel_id: str) -> dict:
     app_cfg = await db.app_settings.find_one({"_id": "main"}) or {}
 
     async def _bg():
-        await scheduler._run_channel(channel_id, ch["url"], ch, app_cfg)
+        await scheduler._run_channel(channel_id, ch["url"], ch, app_cfg, video_url=body.video_url)
 
     asyncio.create_task(_bg())
-    return {"status": "started", "channel_id": channel_id}
+    return {"status": "started", "channel_id": channel_id, "video_url": body.video_url}

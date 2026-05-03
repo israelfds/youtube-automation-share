@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
-from .downloader import fetch_channel_videos, download_video, fetch_transcript
+from .downloader import fetch_channel_videos, fetch_single_video, download_video, fetch_transcript
 from .transcriber import transcribe_audio, segments_to_text
 from .analyzer import analyze_transcript, ClipCandidate
 from .cutter import cut_clip, extract_audio, burn_subtitles
@@ -34,22 +34,31 @@ async def run_pipeline(
     long_min: int = 300,
     long_max: int = 600,
     sample_videos: int = 5,
+    video_url: Optional[str] = None,
 ) -> list[str]:
     """
     Full pipeline for one channel run.
+    If video_url is provided, process only that video instead of sampling the channel.
     Returns list of MongoDB clip IDs saved.
     """
-    log.info(f"Pipeline start → {channel_url}")
     db = get_db()
 
-    # ── 1. Fetch channel videos ────────────────────────────────────────────────
-    videos = fetch_channel_videos(channel_url, max_videos=30)
-    if not videos:
-        log.warning(f"No videos found for {channel_url}")
-        return []
-
-    sample = random.sample(videos, min(sample_videos, len(videos)))
-    log.info(f"Sampled {len(sample)}/{len(videos)} videos")
+    # ── 1. Fetch video(s) ─────────────────────────────────────────────────────
+    if video_url:
+        log.info(f"Pipeline start → specific video: {video_url}")
+        video = fetch_single_video(video_url)
+        if not video:
+            log.warning(f"Could not fetch video info for {video_url}")
+            return []
+        sample = [video]
+    else:
+        log.info(f"Pipeline start → {channel_url}")
+        videos = fetch_channel_videos(channel_url, max_videos=30)
+        if not videos:
+            log.warning(f"No videos found for {channel_url}")
+            return []
+        sample = random.sample(videos, min(sample_videos, len(videos)))
+        log.info(f"Sampled {len(sample)}/{len(videos)} videos")
 
     # ── 2. Transcript + LLM analysis ──────────────────────────────────────────
     # (ClipCandidate, video_dict, transcript_entries, fmt)

@@ -25,6 +25,22 @@ def fetch_channel_videos(channel_url: str, max_videos: int = 30) -> list[dict]:
         ]
 
 
+def fetch_single_video(video_url: str) -> dict | None:
+    """Fetch metadata for a single YouTube video URL."""
+    ydl_opts = {"quiet": True, "extract_flat": True, "ignoreerrors": True}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(video_url, download=False) or {}
+    vid_id = info.get("id")
+    if not vid_id:
+        return None
+    return {
+        "id": vid_id,
+        "url": f"https://www.youtube.com/watch?v={vid_id}",
+        "title": info.get("title", video_url),
+        "duration": info.get("duration"),
+    }
+
+
 def download_video(video_url: str, output_dir: str, video_id: str) -> str:
     """Download best quality video (≤1080p). Returns path to mp4 file."""
     output_tmpl = str(Path(output_dir) / f"{video_id}.%(ext)s")

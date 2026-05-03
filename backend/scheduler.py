@@ -76,7 +76,7 @@ async def sync_jobs() -> None:
     log.info(f"Scheduler synced — {len(channels)} channel(s), cleanup job registered.")
 
 
-async def _run_channel(ch_id: str, ch_url: str, ch: dict, app_cfg: dict) -> None:
+async def _run_channel(ch_id: str, ch_url: str, ch: dict, app_cfg: dict, video_url: str | None = None) -> None:
     # Re-load settings at run time so changes take effect without restart
     from .database import get_db
     db = get_db()
@@ -101,6 +101,7 @@ async def _run_channel(ch_id: str, ch_url: str, ch: dict, app_cfg: dict) -> None
         clip_max=app_cfg.get("clip_max_duration", 120),
         long_min=app_cfg.get("long_clip_min_duration", 300),
         long_max=app_cfg.get("long_clip_max_duration", 600),
+        video_url=video_url,
     )
 
 

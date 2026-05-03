@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Play, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Play, Pencil, Trash2, X, Link } from "lucide-react";
 import { api } from "../api";
 
 interface Channel {
@@ -76,6 +76,8 @@ export default function Channels() {
   const [showModal, setShowModal] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [videoModal, setVideoModal] = useState<Channel | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
 
   const load = () =>
     api.get<Channel[]>("/api/channels").then(setChannels).catch(console.error);
@@ -125,6 +127,26 @@ export default function Channels() {
     try {
       await api.post(`/api/channels/${ch.id}/run`);
       setMsg(`Pipeline iniciado para "${ch.name || ch.url}"`);
+    } catch (e: unknown) {
+      setMsg(`Erro: ${e}`);
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  const openVideoModal = (ch: Channel) => {
+    setVideoModal(ch);
+    setVideoUrl("");
+  };
+
+  const runVideo = async () => {
+    if (!videoModal || !videoUrl.trim()) return;
+    setRunningId(videoModal.id);
+    setMsg("");
+    try {
+      await api.post(`/api/channels/${videoModal.id}/run`, { video_url: videoUrl.trim() });
+      setMsg(`Pipeline iniciado para vídeo: ${videoUrl.trim()}`);
+      setVideoModal(null);
     } catch (e: unknown) {
       setMsg(`Erro: ${e}`);
     } finally {
@@ -200,10 +222,18 @@ export default function Channels() {
                 <button
                   onClick={() => runNow(ch)}
                   disabled={runningId === ch.id}
-                  title="Executar agora"
+                  title="Executar agora (amostra aleatória)"
                   className="p-2 rounded-lg bg-green-900/40 hover:bg-green-800/60 text-green-400 disabled:opacity-40"
                 >
                   <Play size={15} />
+                </button>
+                <button
+                  onClick={() => openVideoModal(ch)}
+                  disabled={runningId === ch.id}
+                  title="Processar vídeo específico"
+                  className="p-2 rounded-lg bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 disabled:opacity-40"
+                >
+                  <Link size={15} />
                 </button>
                 <button
                   onClick={() => openEdit(ch)}
@@ -221,6 +251,42 @@ export default function Channels() {
             </div>
           ))}
         </div>
+      )}
+
+      {videoModal && (
+        <Modal
+          title={`Processar vídeo — ${videoModal.name || videoModal.url}`}
+          onClose={() => setVideoModal(null)}
+        >
+          <p className="text-xs text-gray-400 mb-4">
+            Cole a URL de um vídeo do YouTube. O pipeline usará as configurações de formato e max clips do canal.
+          </p>
+          <Field label="URL do vídeo">
+            <input
+              className={inp}
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runVideo()}
+              autoFocus
+            />
+          </Field>
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => setVideoModal(null)}
+              className="px-4 py-2 text-sm rounded-lg bg-gray-800 hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={runVideo}
+              disabled={!videoUrl.trim() || runningId === videoModal.id}
+              className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
+            >
+              Processar
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showModal && (
