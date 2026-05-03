@@ -1,15 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle, XCircle, Loader, ChevronDown, ChevronRight, Terminal, ExternalLink } from "lucide-react";
 import { api } from "../api";
 
 type Tab = "llm" | "whisper" | "youtube" | "pipeline";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "llm", label: "LLM" },
-  { id: "whisper", label: "Whisper" },
-  { id: "youtube", label: "YouTube" },
-  { id: "pipeline", label: "Pipeline" },
-];
 
 const inp =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500";
@@ -26,138 +20,150 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 // ── YouTube setup guide ───────────────────────────────────────────────────────
 
-const STEPS = [
-  {
-    title: "Criar projeto no Google Cloud",
-    content: (
-      <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-        <li>
-          Acesse{" "}
-          <a
-            href="https://console.cloud.google.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-400 underline inline-flex items-center gap-1"
-          >
-            console.cloud.google.com <ExternalLink size={11} />
-          </a>
-        </li>
-        <li>
-          No seletor de projetos (topo da página), clique em{" "}
-          <span className="bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs">Novo Projeto</span>
-        </li>
-        <li>Dê um nome (ex: <span className="font-mono text-xs bg-gray-700 px-1 rounded">automation-youtube</span>) e clique em <strong>Criar</strong></li>
-        <li>Aguarde e selecione o projeto recém-criado</li>
-      </ol>
-    ),
-  },
-  {
-    title: "Ativar YouTube Data API v3",
-    content: (
-      <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-        <li>
-          No menu lateral: <strong>APIs e Serviços → Biblioteca</strong>
-        </li>
-        <li>
-          Pesquise por{" "}
-          <span className="font-mono text-xs bg-gray-700 px-1 rounded">YouTube Data API v3</span>
-        </li>
-        <li>Clique no resultado e depois em <strong>Ativar</strong></li>
-        <li>Aguarde a ativação (alguns segundos)</li>
-      </ol>
-    ),
-  },
-  {
-    title: "Configurar tela de consentimento OAuth",
-    content: (
-      <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-        <li>
-          Vá em <strong>APIs e Serviços → Tela de consentimento OAuth</strong>
-        </li>
-        <li>
-          Selecione <strong>Externo</strong> e clique em <strong>Criar</strong>
-        </li>
-        <li>
-          Preencha apenas os obrigatórios:
-          <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-gray-400">
-            <li>Nome do app (ex: AutoYT)</li>
-            <li>E-mail de suporte</li>
-            <li>E-mail do desenvolvedor (rodapé)</li>
-          </ul>
-        </li>
-        <li>Clique em <strong>Salvar e continuar</strong> nas próximas telas (sem adicionar escopos nem usuários por enquanto)</li>
-        <li>
-          Na última tela, clique em <strong>Publicar aplicativo</strong> → confirma
-          <br />
-          <span className="text-yellow-500 text-xs">
-            ⚠ Se ficar em "Em teste", só contas adicionadas em "Usuários de teste" podem autorizar
-          </span>
-        </li>
-      </ol>
-    ),
-  },
-  {
-    title: "Criar credenciais OAuth2 (Client ID + Secret)",
-    content: (
-      <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-        <li>
-          Vá em <strong>APIs e Serviços → Credenciais</strong>
-        </li>
-        <li>
-          Clique em <strong>+ Criar Credenciais → ID do cliente OAuth</strong>
-        </li>
-        <li>
-          Tipo de aplicativo: selecione <strong>App para computador (Desktop)</strong>
-        </li>
-        <li>Nome: qualquer (ex: <span className="font-mono text-xs bg-gray-700 px-1 rounded">autoyt-desktop</span>)</li>
-        <li>Clique em <strong>Criar</strong></li>
-        <li>
-          Uma janela mostrará o <strong>Client ID</strong> e <strong>Client Secret</strong>
-          <br />
-          <span className="text-gray-400 text-xs">Copie ambos — ou faça download do JSON</span>
-        </li>
-      </ol>
-    ),
-  },
-  {
-    title: "Adicionar escopo de upload",
-    content: (
-      <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-        <li>
-          Volte em <strong>Tela de consentimento OAuth → Editar app → Escopos</strong>
-        </li>
-        <li>Clique em <strong>Adicionar ou remover escopos</strong></li>
-        <li>
-          Filtre por{" "}
-          <span className="font-mono text-xs bg-gray-700 px-1 rounded">youtube</span> e marque:
-          <br />
-          <span className="font-mono text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded mt-1 inline-block">
-            https://www.googleapis.com/auth/youtube.upload
-          </span>
-        </li>
-        <li>Clique em <strong>Atualizar</strong> e depois <strong>Salvar e continuar</strong></li>
-      </ol>
-    ),
-  },
-  {
-    title: "Gerar Refresh Token (autorizar canal)",
-    content: (
-      <div className="space-y-3 text-sm text-gray-300">
-        <ol className="list-decimal list-inside space-y-1 text-gray-400 mt-2">
-          <li>Certifique-se de ter salvo o <strong>Client ID</strong> e <strong>Client Secret</strong> no formulário abaixo!</li>
-          <li>Clique no botão vermelho <strong>Autorizar Canal do YouTube</strong> (abaixo do formulário).</li>
-          <li>Autorize o aplicativo com a conta do seu canal do YouTube.</li>
-        </ol>
-        <p className="text-yellow-500 text-xs">
-          ⚠ Autorize com a conta correta do canal. Lembre-se de adicionar a URI <code className="bg-gray-800 px-1 rounded">http://localhost:7070/api/settings/youtube/callback</code> nos "URIs de redirecionamento autorizados" no Google Cloud (passo 4).
-        </p>
-      </div>
-    ),
-  },
-];
-
 function YoutubeGuide() {
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
+
+  const STEPS = [
+    {
+      title: t("settings.guide.step_1"),
+      content: i18n.language === 'pt' ? (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Acesse <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-blue-400 underline inline-flex items-center gap-1">console.cloud.google.com <ExternalLink size={11} /></a></li>
+          <li>No seletor de projetos (topo da página), clique em <span className="bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs">Novo Projeto</span></li>
+          <li>Dê um nome (ex: <span className="font-mono text-xs bg-gray-700 px-1 rounded">automation-youtube</span>) e clique em <strong>Criar</strong></li>
+          <li>Aguarde e selecione o projeto recém-criado</li>
+        </ol>
+      ) : (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-blue-400 underline inline-flex items-center gap-1">console.cloud.google.com <ExternalLink size={11} /></a></li>
+          <li>In the project selector (top of the page), click <span className="bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs">New Project</span></li>
+          <li>Give it a name (e.g., <span className="font-mono text-xs bg-gray-700 px-1 rounded">automation-youtube</span>) and click <strong>Create</strong></li>
+          <li>Wait and select the newly created project</li>
+        </ol>
+      ),
+    },
+    {
+      title: t("settings.guide.step_2"),
+      content: i18n.language === 'pt' ? (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>No menu lateral: <strong>APIs e Serviços → Biblioteca</strong></li>
+          <li>Pesquise por <span className="font-mono text-xs bg-gray-700 px-1 rounded">YouTube Data API v3</span></li>
+          <li>Clique no resultado e depois em <strong>Ativar</strong></li>
+          <li>Aguarde a ativação (alguns segundos)</li>
+        </ol>
+      ) : (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>In the side menu: <strong>APIs & Services → Library</strong></li>
+          <li>Search for <span className="font-mono text-xs bg-gray-700 px-1 rounded">YouTube Data API v3</span></li>
+          <li>Click the result and then <strong>Enable</strong></li>
+          <li>Wait for activation (a few seconds)</li>
+        </ol>
+      ),
+    },
+    {
+      title: t("settings.guide.step_3"),
+      content: i18n.language === 'pt' ? (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Vá em <strong>APIs e Serviços → Tela de consentimento OAuth</strong></li>
+          <li>Selecione <strong>Externo</strong> e clique em <strong>Criar</strong></li>
+          <li>Preencha apenas os obrigatórios:
+            <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-gray-400">
+              <li>Nome do app (ex: AutoYT)</li>
+              <li>E-mail de suporte</li>
+              <li>E-mail do desenvolvedor (rodapé)</li>
+            </ul>
+          </li>
+          <li>Clique em <strong>Salvar e continuar</strong> nas próximas telas</li>
+          <li>Na última tela, clique em <strong>Publicar aplicativo</strong> → confirma</li>
+        </ol>
+      ) : (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Go to <strong>APIs & Services → OAuth consent screen</strong></li>
+          <li>Select <strong>External</strong> and click <strong>Create</strong></li>
+          <li>Fill in only the mandatory ones:
+            <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-gray-400">
+              <li>App name (e.g., AutoYT)</li>
+              <li>Support email</li>
+              <li>Developer email (footer)</li>
+            </ul>
+          </li>
+          <li>Click <strong>Save and continue</strong> on the next screens</li>
+          <li>On the last screen, click <strong>Publish app</strong> → confirm</li>
+        </ol>
+      ),
+    },
+    {
+      title: t("settings.guide.step_4"),
+      content: i18n.language === 'pt' ? (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Vá em <strong>APIs e Serviços → Credenciais</strong></li>
+          <li>Clique em <strong>+ Criar Credenciais → ID do cliente OAuth</strong></li>
+          <li>Tipo de aplicativo: selecione <strong>App para computador (Desktop)</strong></li>
+          <li>Nome: qualquer (ex: <span className="font-mono text-xs bg-gray-700 px-1 rounded">autoyt-desktop</span>)</li>
+          <li>Clique em <strong>Criar</strong></li>
+          <li>Uma janela mostrará o <strong>Client ID</strong> e <strong>Client Secret</strong></li>
+        </ol>
+      ) : (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Go to <strong>APIs & Services → Credentials</strong></li>
+          <li>Click <strong>+ Create Credentials → OAuth client ID</strong></li>
+          <li>Application type: select <strong>Desktop app</strong></li>
+          <li>Name: any (e.g., <span className="font-mono text-xs bg-gray-700 px-1 rounded">autoyt-desktop</span>)</li>
+          <li>Click <strong>Create</strong></li>
+          <li>A window will show the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+        </ol>
+      ),
+    },
+    {
+      title: t("settings.guide.step_5"),
+      content: i18n.language === 'pt' ? (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Volte em <strong>Tela de consentimento OAuth → Editar app → Escopos</strong></li>
+          <li>Clique em <strong>Adicionar ou remover escopos</strong></li>
+          <li>Filtre por <span className="font-mono text-xs bg-gray-700 px-1 rounded">youtube</span> e marque:
+            <br />
+            <span className="font-mono text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded mt-1 inline-block">
+              https://www.googleapis.com/auth/youtube.upload
+            </span>
+          </li>
+          <li>Clique em <strong>Atualizar</strong> e depois <strong>Salvar e continuar</strong></li>
+        </ol>
+      ) : (
+        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+          <li>Go back to <strong>OAuth consent screen → Edit app → Scopes</strong></li>
+          <li>Click <strong>Add or remove scopes</strong></li>
+          <li>Filter by <span className="font-mono text-xs bg-gray-700 px-1 rounded">youtube</span> and check:
+            <br />
+            <span className="font-mono text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded mt-1 inline-block">
+              https://www.googleapis.com/auth/youtube.upload
+            </span>
+          </li>
+          <li>Click <strong>Update</strong> and then <strong>Save and continue</strong></li>
+        </ol>
+      ),
+    },
+    {
+      title: t("settings.guide.step_6"),
+      content: i18n.language === 'pt' ? (
+        <div className="space-y-3 text-sm text-gray-300">
+          <ol className="list-decimal list-inside space-y-1 text-gray-400 mt-2">
+            <li>Certifique-se de ter salvo o <strong>Client ID</strong> e <strong>Client Secret</strong> no formulário abaixo!</li>
+            <li>Clique no botão vermelho <strong>Autorizar Canal do YouTube</strong>.</li>
+            <li>Autorize o aplicativo com a conta do seu canal.</li>
+          </ol>
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm text-gray-300">
+          <ol className="list-decimal list-inside space-y-1 text-gray-400 mt-2">
+            <li>Make sure you have saved the <strong>Client ID</strong> and <strong>Client Secret</strong> in the form below!</li>
+            <li>Click the red <strong>Authorize YouTube Channel</strong> button.</li>
+            <li>Authorize the application with your channel's account.</li>
+          </ol>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="mb-2">
@@ -165,7 +171,7 @@ function YoutubeGuide() {
         onClick={() => setOpen(open === -1 ? null : -1)}
         className="w-full flex items-center justify-between bg-blue-950/40 border border-blue-900/60 rounded-xl px-4 py-3 text-sm text-blue-300 hover:bg-blue-950/60 transition-colors"
       >
-        <span className="font-medium">Como configurar o Google Cloud e gerar credenciais</span>
+        <span className="font-medium">{t("settings.guide.title")}</span>
         {open === -1 ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
 
@@ -198,8 +204,7 @@ function YoutubeGuide() {
           ))}
 
           <div className="bg-green-950/30 border border-green-900/50 rounded-xl px-4 py-3 text-sm text-green-300">
-            ✓ Após o passo 6, você terá <strong>Client ID</strong>, <strong>Client Secret</strong> e{" "}
-            <strong>Refresh Token</strong> para preencher abaixo.
+            {t("settings.guide.footer")}
           </div>
         </div>
       )}
@@ -210,10 +215,18 @@ function YoutubeGuide() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("llm");
   const [cfg, setCfg] = useState<Record<string, unknown>>({});
   const [saved, setSaved] = useState(false);
   const [ytStatus, setYtStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: "llm", label: "LLM" },
+    { id: "whisper", label: "Whisper" },
+    { id: "youtube", label: "YouTube" },
+    { id: "pipeline", label: "Pipeline" },
+  ];
 
   useEffect(() => {
     api.get<Record<string, unknown>>("/api/settings").then(setCfg).catch(console.error);
@@ -221,11 +234,11 @@ export default function Settings() {
     // Check for OAuth callback status
     const params = new URLSearchParams(window.location.search);
     if (params.get("youtube_auth") === "success") {
-      alert("YouTube autorizado com sucesso! Refresh token salvo.");
+      alert(t("settings.auth_success"));
       // Clean url
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (params.get("youtube_auth") === "error") {
-      alert(`Erro na autorização do YouTube: ${params.get("msg")}`);
+      alert(`${t("settings.auth_error")}: ${params.get("msg")}`);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -238,7 +251,7 @@ export default function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
-      alert(`Erro ao salvar: ${e}`);
+      alert(`${t("common.error")}: ${e}`);
     }
   };
 
@@ -250,13 +263,13 @@ export default function Settings() {
       );
       setYtStatus(r.ok ? "ok" : "fail");
       if (r.ok) {
-        alert("✅ Sucesso! As credenciais do YouTube estão válidas e prontas para uso.");
+        alert(t("settings.success_yt_test"));
       } else {
-        alert(`❌ Falha nas credenciais: ${r.error || "Erro desconhecido."}`);
+        alert(`${t("settings.fail_yt_test")}: ${r.error || t("common.unknown_error")}`);
       }
     } catch (e: any) {
       setYtStatus("fail");
-      alert(`❌ Erro ao testar YouTube: ${e.message || e}`);
+      alert(`${t("settings.error_yt_test")}: ${e.message || e}`);
     }
     setTimeout(() => setYtStatus("idle"), 4000);
   };
@@ -267,12 +280,12 @@ export default function Settings() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Configurações</h1>
+        <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
         <button
           onClick={save}
           className="bg-red-600 hover:bg-red-700 text-white text-sm px-5 py-2 rounded-lg"
         >
-          {saved ? "Salvo ✓" : "Salvar"}
+          {saved ? t("settings.saved") : t("common.save")}
         </button>
       </div>
 
@@ -297,7 +310,7 @@ export default function Settings() {
         {/* ── LLM ─────────────────────────────────────────────────── */}
         {tab === "llm" && (
           <>
-            <Field label="Provedor LLM">
+            <Field label={t("settings.llm_provider")}>
               <div className="flex gap-3">
                 {["openai", "llamacpp"].map((p) => (
                   <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -317,7 +330,7 @@ export default function Settings() {
 
             {s("llm_provider", "openai") === "openai" ? (
               <>
-                <Field label="OpenAI API Key">
+                <Field label={t("settings.openai_key")}>
                   <input
                     type="password"
                     className={inp}
@@ -326,7 +339,7 @@ export default function Settings() {
                     onChange={(e) => set("openai_api_key", e.target.value)}
                   />
                 </Field>
-                <Field label="Modelo">
+                <Field label={t("settings.model")}>
                   <select
                     className={inp}
                     value={String(s("openai_model", "gpt-4o-mini"))}
@@ -341,7 +354,7 @@ export default function Settings() {
             ) : (
               <>
                 <Field
-                  label="Caminho do modelo .gguf"
+                  label={t("settings.gguf_path")}
                   hint="Ex: /home/user/models/llama-3.1-8b.gguf"
                 >
                   <input
@@ -352,7 +365,7 @@ export default function Settings() {
                   />
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Context size (n_ctx)">
+                  <Field label={t("settings.context_size")}>
                     <input
                       type="number"
                       className={inp}
@@ -360,7 +373,7 @@ export default function Settings() {
                       onChange={(e) => set("llamacpp_n_ctx", Number(e.target.value))}
                     />
                   </Field>
-                  <Field label="GPU layers (-1 = todos)">
+                  <Field label={t("settings.gpu_layers")}>
                     <input
                       type="number"
                       className={inp}
@@ -379,7 +392,7 @@ export default function Settings() {
         {/* ── Whisper ──────────────────────────────────────────────── */}
         {tab === "whisper" && (
           <>
-            <Field label="Tamanho do modelo Whisper">
+            <Field label={t("settings.whisper_size")}>
               <select
                 className={inp}
                 value={String(s("whisper_model", "base"))}
@@ -392,13 +405,13 @@ export default function Settings() {
                 ))}
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                large-v3 = mais preciso, mais lento. base = bom equilíbrio.
+                {t("settings.whisper_help")}
               </p>
             </Field>
 
             <Field
-              label="Override de device"
-              hint="Deixe vazio para auto-detectar (recomendado)"
+              label={t("settings.device_override")}
+              hint={t("settings.device_help")}
             >
               <select
                 className={inp}
@@ -407,7 +420,7 @@ export default function Settings() {
                   set("whisper_device_override", e.target.value || null)
                 }
               >
-                <option value="">Auto (detectar GPU)</option>
+                <option value="">{t("settings.auto_gpu")}</option>
                 <option value="cuda">CUDA (NVIDIA)</option>
                 <option value="cpu">CPU</option>
               </select>
@@ -422,7 +435,7 @@ export default function Settings() {
 
             <div className="border-t border-gray-800 mt-6 pt-6">
               <h3 className="text-sm font-semibold mb-4 text-gray-200">
-                Credenciais OAuth2
+                {t("settings.oauth_credentials")}
               </h3>
 
               <Field label="Client ID">
@@ -446,7 +459,7 @@ export default function Settings() {
 
               <Field
                 label="Refresh Token"
-                hint="Gerado automaticamente após autorizar com o botão acima."
+                hint={t("settings.refresh_token_help")}
               >
                 <input
                   type="password"
@@ -463,7 +476,7 @@ export default function Settings() {
                   href="/api/settings/youtube/auth"
                   className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-lg font-medium"
                 >
-                  Autorizar Canal do YouTube
+                  {t("settings.authorize_button")}
                 </a>
                 <button
                   onClick={testYt}
@@ -473,10 +486,10 @@ export default function Settings() {
                   {ytStatus === "loading" && <Loader size={14} className="animate-spin" />}
                   {ytStatus === "ok" && <CheckCircle size={14} className="text-green-400" />}
                   {ytStatus === "fail" && <XCircle size={14} className="text-red-400" />}
-                  {ytStatus === "idle" && "Testar credenciais"}
-                  {ytStatus === "loading" && "Testando..."}
-                  {ytStatus === "ok" && "Credenciais válidas"}
-                  {ytStatus === "fail" && "Credenciais inválidas"}
+                  {ytStatus === "idle" && t("settings.test_credentials")}
+                  {ytStatus === "loading" && t("settings.testing")}
+                  {ytStatus === "ok" && t("settings.valid_credentials")}
+                  {ytStatus === "fail" && t("settings.invalid_credentials")}
                 </button>
               </div>
             </div>
@@ -487,7 +500,7 @@ export default function Settings() {
         {tab === "pipeline" && (
           <>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Duração mín. shorts (s)">
+              <Field label={t("settings.min_duration_shorts")}>
                 <input
                   type="number"
                   className={inp}
@@ -495,7 +508,7 @@ export default function Settings() {
                   onChange={(e) => set("clip_min_duration", Number(e.target.value))}
                 />
               </Field>
-              <Field label="Duração máx. shorts (s)">
+              <Field label={t("settings.max_duration_shorts")}>
                 <input
                   type="number"
                   className={inp}
@@ -503,7 +516,7 @@ export default function Settings() {
                   onChange={(e) => set("clip_max_duration", Number(e.target.value))}
                 />
               </Field>
-              <Field label="Duração mín. longos (s)">
+              <Field label={t("settings.min_duration_longs")}>
                 <input
                   type="number"
                   className={inp}
@@ -513,7 +526,7 @@ export default function Settings() {
                   }
                 />
               </Field>
-              <Field label="Duração máx. longos (s)">
+              <Field label={t("settings.max_duration_longs")}>
                 <input
                   type="number"
                   className={inp}
@@ -523,7 +536,7 @@ export default function Settings() {
                   }
                 />
               </Field>
-              <Field label="Shorts/dia (quota YT)">
+              <Field label={t("settings.shorts_per_day")}>
                 <input
                   type="number"
                   className={inp}
@@ -531,7 +544,7 @@ export default function Settings() {
                   onChange={(e) => set("daily_short_uploads", Number(e.target.value))}
                 />
               </Field>
-              <Field label="Longos/dia (quota YT)">
+              <Field label={t("settings.longs_per_day")}>
                 <input
                   type="number"
                   className={inp}
@@ -539,7 +552,7 @@ export default function Settings() {
                   onChange={(e) => set("daily_long_uploads", Number(e.target.value))}
                 />
               </Field>
-              <Field label="TTL clips não publicados (dias)">
+              <Field label={t("settings.clip_ttl")}>
                 <input
                   type="number"
                   className={inp}

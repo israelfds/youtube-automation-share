@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Trash2, ExternalLink, Film, UploadCloud, Loader2, Image as ImageIcon } from "lucide-react";
 import { api } from "../api";
 
@@ -33,6 +34,7 @@ const fmt = (sec: number) => {
 };
 
 export default function Clips() {
+  const { t, i18n } = useTranslation();
   const [clips, setClips] = useState<Clip[]>([]);
   const [filter, setFilter] = useState({ format: "", status: "", days: 7 });
   const [preview, setPreview] = useState<Clip | null>(null);
@@ -53,13 +55,13 @@ export default function Clips() {
   }, [filter]);
 
   const remove = async (id: string) => {
-    if (!confirm("Remover clip?")) return;
+    if (!confirm(t("clips.confirm_delete"))) return;
     await api.del(`/api/clips/${id}`);
     load();
   };
 
   const uploadClip = async (id: string) => {
-    if (!confirm("Fazer upload deste corte para o YouTube agora?")) return;
+    if (!confirm(t("clips.confirm_upload"))) return;
     setUploadingId(id);
     try {
       const res = await api.post<{ ok: boolean; yt_id: string }>(`/api/clips/${id}/upload`);
@@ -69,10 +71,10 @@ export default function Clips() {
             c.id === id ? { ...c, status: "published", youtube_id: res.yt_id } : c
           )
         );
-        alert("Upload concluído com sucesso!");
+        alert(t("clips.upload_success"));
       }
     } catch (e: any) {
-      alert(`Erro no upload: ${e.message || e}`);
+      alert(`${t("clips.upload_error")}: ${e.message || e}`);
     } finally {
       setUploadingId(null);
     }
@@ -88,10 +90,10 @@ export default function Clips() {
             c.id === id ? { ...c, thumbnail_key: res.thumbnail_key } : c
           )
         );
-        alert("Thumbnail gerada com sucesso!");
+        alert(t("clips.thumb_success"));
       }
     } catch (e: any) {
-      alert(`Erro ao gerar thumbnail: ${e.message || e}`);
+      alert(`${t("clips.thumb_error")}: ${e.message || e}`);
     } finally {
       setThumbingId(null);
     }
@@ -99,7 +101,7 @@ export default function Clips() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Clips</h1>
+      <h1 className="text-2xl font-bold mb-4">{t("clips.title")}</h1>
 
       {/* Filters */}
       <div className="flex gap-3 mb-5 flex-wrap">
@@ -108,7 +110,7 @@ export default function Clips() {
           value={filter.format}
           onChange={(e) => setFilter({ ...filter, format: e.target.value })}
         >
-          <option value="">Todos formatos</option>
+          <option value="">{t("clips.all_formats")}</option>
           <option value="short">Short</option>
           <option value="long">Long</option>
         </select>
@@ -118,11 +120,11 @@ export default function Clips() {
           value={filter.status}
           onChange={(e) => setFilter({ ...filter, status: e.target.value })}
         >
-          <option value="">Todos status</option>
-          <option value="ready">Ready (Auto-upload)</option>
-          <option value="manual">Manual (Sem upload)</option>
-          <option value="published">Published</option>
-          <option value="error">Error</option>
+          <option value="">{t("clips.all_status")}</option>
+          <option value="ready">{t("clips.status.ready")} (Auto-upload)</option>
+          <option value="manual">{t("clips.status.manual")} (Sem upload)</option>
+          <option value="published">{t("clips.status.published")}</option>
+          <option value="error">{t("clips.status.error")}</option>
         </select>
 
         <select
@@ -130,17 +132,17 @@ export default function Clips() {
           value={filter.days}
           onChange={(e) => setFilter({ ...filter, days: Number(e.target.value) })}
         >
-          <option value={1}>Hoje</option>
-          <option value={7}>7 dias</option>
-          <option value={30}>30 dias</option>
-          <option value={365}>Todos</option>
+          <option value={1}>{t("clips.today")}</option>
+          <option value={7}>{t("clips.7_days")}</option>
+          <option value={30}>{t("clips.30_days")}</option>
+          <option value={365}>{t("clips.all_time")}</option>
         </select>
       </div>
 
       {clips.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-600">
           <Film size={40} className="mb-3" />
-          <p>Nenhum clip encontrado.</p>
+          <p>{t("clips.no_clips")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -153,7 +155,7 @@ export default function Clips() {
               <button
                 onClick={() => setPreview(clip)}
                 className="w-16 h-16 shrink-0 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors overflow-hidden"
-                title="Preview"
+                title={t("clips.preview")}
               >
                 {clip.thumbnail_key ? (
                   <img 
@@ -174,7 +176,7 @@ export default function Clips() {
                       STATUS_COLORS[clip.status] || "bg-gray-800 text-gray-400"
                     }`}
                   >
-                    {clip.status}
+                    {t(`clips.status.${clip.status}`)}
                   </span>
                   <span className="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">
                     {clip.format}
@@ -182,9 +184,9 @@ export default function Clips() {
                 </div>
                 <p className="text-xs text-gray-500 truncate mb-1">{clip.source_title}</p>
                 <div className="flex gap-3 text-xs text-gray-500">
-                  <span>score: {clip.score.toFixed(0)}</span>
+                  <span>{t("clips.score")}: {clip.score.toFixed(0)}</span>
                   <span>{fmt(clip.duration)}</span>
-                  <span>{new Date(clip.created_at).toLocaleDateString("pt-BR")}</span>
+                  <span>{new Date(clip.created_at).toLocaleDateString(i18n.language === 'pt' ? 'pt-BR' : 'en-US')}</span>
                 </div>
               </div>
 
@@ -195,6 +197,7 @@ export default function Clips() {
                     target="_blank"
                     rel="noreferrer"
                     className="p-2 rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-400 hover:text-red-400"
+                    title={t("clips.view_on_youtube")}
                   >
                     <ExternalLink size={14} />
                   </a>
@@ -202,7 +205,7 @@ export default function Clips() {
                 <button
                   onClick={() => clip.thumbnail_key ? setThumbPreview(clip) : generateThumb(clip.id)}
                   disabled={thumbingId === clip.id}
-                  title={clip.thumbnail_key ? "Ver Thumbnail" : "Gerar Thumbnail (IA)"}
+                  title={clip.thumbnail_key ? t("clips.view_thumb") : t("clips.generate_thumb")}
                   className={`p-2 rounded-lg bg-gray-800 hover:bg-purple-900/40 text-gray-400 hover:text-purple-400 disabled:opacity-50 ${clip.thumbnail_key ? 'text-purple-400' : ''}`}
                 >
                   {thumbingId === clip.id ? (
@@ -215,7 +218,7 @@ export default function Clips() {
                   <button
                     onClick={() => uploadClip(clip.id)}
                     disabled={uploadingId === clip.id}
-                    title="Fazer upload para o YouTube"
+                    title={t("clips.upload_to_youtube")}
                     className="p-2 rounded-lg bg-gray-800 hover:bg-green-900/40 text-gray-400 hover:text-green-400 disabled:opacity-50"
                   >
                     {uploadingId === clip.id ? (
@@ -227,7 +230,7 @@ export default function Clips() {
                 )}
                 <button
                   onClick={() => remove(clip.id)}
-                  title="Excluir corte"
+                  title={t("clips.delete_clip")}
                   className="p-2 rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-400 hover:text-red-400"
                 >
                   <Trash2 size={14} />
@@ -279,7 +282,7 @@ export default function Clips() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center px-4 py-3 border-b border-gray-800">
-              <span className="text-sm font-medium truncate">Thumbnail: {thumbPreview.title}</span>
+              <span className="text-sm font-medium truncate">{t("clips.view_thumb")}: {thumbPreview.title}</span>
               <button onClick={() => setThumbPreview(null)} className="text-gray-400 ml-2 hover:text-white">
                 ✕
               </button>
@@ -296,14 +299,14 @@ export default function Clips() {
                 className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
               >
                 {thumbingId === thumbPreview.id ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-                Gerar Novamente
+                {t("clips.regenerate")}
               </button>
               <a
                 href={`/api/clips/${thumbPreview.id}/thumbnail_image`}
                 download={`thumb_${thumbPreview.id}.png`}
                 className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm"
               >
-                Baixar
+                {t("clips.download")}
               </a>
             </div>
           </div>

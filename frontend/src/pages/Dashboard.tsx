@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api";
 
 interface Health {
@@ -47,6 +48,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
   const [health, setHealth] = useState<Health | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -69,7 +71,7 @@ export default function Dashboard() {
 
   const fmt = (iso: string | null) => {
     if (!iso) return "—";
-    return new Date(iso).toLocaleString("pt-BR", {
+    return new Date(iso).toLocaleString(i18n.language === 'pt' ? 'pt-BR' : 'en-US', {
       dateStyle: "short",
       timeStyle: "short",
     });
@@ -77,10 +79,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-6">{t("dashboard.title")}</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card title="Infraestrutura">
+        <Card title={t("dashboard.infrastructure")}>
           {health ? (
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between items-center">
@@ -97,23 +99,23 @@ export default function Dashboard() {
               </li>
             </ul>
           ) : (
-            <p className="text-red-400 text-sm">Backend inacessível.</p>
+            <p className="text-red-400 text-sm">{t("dashboard.backend_inaccessible")}</p>
           )}
         </Card>
 
-        <Card title="Clips">
+        <Card title={t("dashboard.clips")}>
           {stats ? (
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between">
-                <span className="text-gray-400">Total</span>
+                <span className="text-gray-400">{t("dashboard.total")}</span>
                 <span className="font-mono">{stats.total}</span>
               </li>
               <li className="flex justify-between">
-                <span className="text-gray-400">Hoje</span>
+                <span className="text-gray-400">{t("dashboard.today")}</span>
                 <span className="font-mono">{stats.today}</span>
               </li>
               <li className="flex justify-between">
-                <span className="text-gray-400">Publicados</span>
+                <span className="text-gray-400">{t("dashboard.published")}</span>
                 <span className="font-mono">{stats.published}</span>
               </li>
             </ul>
@@ -122,7 +124,7 @@ export default function Dashboard() {
           )}
         </Card>
 
-        <Card title="YouTube Hoje">
+        <Card title={t("dashboard.youtube_today")}>
           {stats ? (
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between">
@@ -130,7 +132,7 @@ export default function Dashboard() {
                 <span className="font-mono">{stats.yt_shorts_today}</span>
               </li>
               <li className="flex justify-between">
-                <span className="text-gray-400">Longos</span>
+                <span className="text-gray-400">{t("en") === "en" ? "Longs" : "Longos"}</span>
                 <span className="font-mono">{stats.yt_longs_today}</span>
               </li>
             </ul>
@@ -140,24 +142,24 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card title={`Jobs Agendados (${jobs.length})`}>
+      <Card title={`${t("dashboard.scheduled_jobs")} (${jobs.length})`}>
         <div className="flex justify-end mb-3">
           <button
             onClick={syncJobs}
             disabled={syncing}
             className="text-xs px-3 py-1 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-40"
           >
-            {syncing ? "Sincronizando…" : "Sincronizar"}
+            {syncing ? t("dashboard.syncing") : t("dashboard.sync")}
           </button>
         </div>
         {jobs.length === 0 ? (
-          <p className="text-gray-500 text-sm">Nenhum job. Adicione canais primeiro.</p>
+          <p className="text-gray-500 text-sm">{t("dashboard.no_jobs")}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-gray-500 text-xs uppercase">
                 <th className="text-left py-1 pr-4">ID</th>
-                <th className="text-left py-1">Próxima execução</th>
+                <th className="text-left py-1">{t("dashboard.next_run")}</th>
               </tr>
             </thead>
             <tbody>

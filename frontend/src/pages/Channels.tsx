@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Play, Pencil, Trash2, X, Link } from "lucide-react";
 import { api } from "../api";
 
@@ -70,6 +71,7 @@ const inp =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500";
 
 export default function Channels() {
+  const { t } = useTranslation();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [editing, setEditing] = useState<Channel | null>(null);
   const [form, setForm] = useState<Omit<Channel, "id">>(EMPTY);
@@ -114,12 +116,12 @@ export default function Channels() {
       close();
       load();
     } catch (e: unknown) {
-      alert(`Erro: ${e}`);
+      alert(`${t("common.error")}: ${e}`);
     }
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Remover canal?")) return;
+    if (!confirm(t("channels.confirm_delete"))) return;
     await api.del(`/api/channels/${id}`);
     load();
   };
@@ -129,9 +131,9 @@ export default function Channels() {
     setMsg("");
     try {
       await api.post(`/api/channels/${ch.id}/run`);
-      setMsg(`Pipeline iniciado para "${ch.name || ch.url}"`);
+      setMsg(`${t("channels.pipeline_started")} "${ch.name || ch.url}"`);
     } catch (e: unknown) {
-      setMsg(`Erro: ${e}`);
+      setMsg(`${t("common.error")}: ${e}`);
     } finally {
       setRunningId(null);
     }
@@ -151,10 +153,10 @@ export default function Channels() {
         video_url: videoUrl.trim(),
         max_clips: maxClips 
       });
-      setMsg(`Pipeline iniciado para vídeo: ${videoUrl.trim()}`);
+      setMsg(`${t("channels.pipeline_started")} ${videoUrl.trim()}`);
       setVideoModal(null);
     } catch (e: unknown) {
-      setMsg(`Erro: ${e}`);
+      setMsg(`${t("common.error")}: ${e}`);
     } finally {
       setRunningId(null);
     }
@@ -169,10 +171,10 @@ export default function Channels() {
         video_url: videoUrl.trim(),
         max_clips: maxClips 
       });
-      setMsg(`Pipeline iniciado para vídeo: ${videoUrl.trim()}`);
+      setMsg(`${t("channels.pipeline_started")} ${videoUrl.trim()}`);
       setGlobalVideoModal(false);
     } catch (e: unknown) {
-      setMsg(`Erro: ${e}`);
+      setMsg(`${t("common.error")}: ${e}`);
     } finally {
       setRunningId(null);
     }
@@ -192,7 +194,7 @@ export default function Channels() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Canais</h1>
+        <h1 className="text-2xl font-bold">{t("channels.title")}</h1>
         <div className="flex gap-3">
           <button
             onClick={() => {
@@ -201,13 +203,13 @@ export default function Channels() {
             }}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg"
           >
-            <Play size={15} /> Adicionar vídeo
+            <Play size={15} /> {t("channels.add_video")}
           </button>
           <button
             onClick={openCreate}
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-lg"
           >
-            <Plus size={15} /> Adicionar canal
+            <Plus size={15} /> {t("channels.add_channel")}
           </button>
         </div>
       </div>
@@ -219,7 +221,7 @@ export default function Channels() {
       )}
 
       {channels.length === 0 ? (
-        <p className="text-gray-500">Nenhum canal cadastrado.</p>
+        <p className="text-gray-500">{t("channels.no_channels")}</p>
       ) : (
         <div className="space-y-3">
           {channels.map((ch) => (
@@ -247,8 +249,8 @@ export default function Channels() {
                     </span>
                   ))}
                   <span className="text-xs text-gray-500">
-                    análise {ch.job_hour}:{String(ch.job_minute).padStart(2, "0")} •
-                    upload {ch.upload_hour}:{String(ch.upload_minute).padStart(2, "0")}
+                    {t("channels.analysis_time").toLowerCase()} {ch.job_hour}:{String(ch.job_minute).padStart(2, "0")} •
+                    {t("channels.upload_time").toLowerCase()} {ch.upload_hour}:{String(ch.upload_minute).padStart(2, "0")}
                   </span>
                 </div>
               </div>
@@ -257,7 +259,7 @@ export default function Channels() {
                 <button
                   onClick={() => runNow(ch)}
                   disabled={runningId === ch.id}
-                  title="Executar agora (amostra aleatória)"
+                  title={t("channels.run_now_title")}
                   className="p-2 rounded-lg bg-green-900/40 hover:bg-green-800/60 text-green-400 disabled:opacity-40"
                 >
                   <Play size={15} />
@@ -265,7 +267,7 @@ export default function Channels() {
                 <button
                   onClick={() => openVideoModal(ch)}
                   disabled={runningId === ch.id}
-                  title="Processar vídeo específico"
+                  title={t("channels.process_video")}
                   className="p-2 rounded-lg bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 disabled:opacity-40"
                 >
                   <Link size={15} />
@@ -290,13 +292,13 @@ export default function Channels() {
 
       {videoModal && (
         <Modal
-          title={`Processar vídeo — ${videoModal.name || videoModal.url}`}
+          title={`${t("channels.process_video")} — ${videoModal.name || videoModal.url}`}
           onClose={() => setVideoModal(null)}
         >
           <p className="text-xs text-gray-400 mb-4">
-            Cole a URL de um vídeo do YouTube. O pipeline usará as configurações de formato e max clips do canal.
+            {t("channels.process_video_channel_help")}
           </p>
-          <Field label="URL do vídeo">
+          <Field label={t("channels.video_url_label")}>
             <input
               className={inp}
               placeholder="https://www.youtube.com/watch?v=..."
@@ -306,7 +308,7 @@ export default function Channels() {
               autoFocus
             />
           </Field>
-          <Field label="Quantidade máxima de clips">
+          <Field label={t("channels.max_clips_label")}>
             <input
               type="number"
               min={1}
@@ -321,14 +323,14 @@ export default function Channels() {
               onClick={() => setVideoModal(null)}
               className="px-4 py-2 text-sm rounded-lg bg-gray-800 hover:bg-gray-700"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               onClick={runVideo}
               disabled={!videoUrl.trim() || runningId === videoModal.id}
               className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
             >
-              Processar
+              {t("common.process")}
             </button>
           </div>
         </Modal>
@@ -336,13 +338,13 @@ export default function Channels() {
 
       {globalVideoModal && (
         <Modal
-          title="Processar vídeo específico"
+          title={t("channels.process_specific_video")}
           onClose={() => setGlobalVideoModal(false)}
         >
           <p className="text-xs text-gray-400 mb-4">
-            Cole a URL de um vídeo do YouTube. O pipeline usará as configurações padrão do sistema.
+            {t("channels.process_video_help")}
           </p>
-          <Field label="URL do vídeo">
+          <Field label={t("channels.video_url_label")}>
             <input
               className={inp}
               placeholder="https://www.youtube.com/watch?v=..."
@@ -352,7 +354,7 @@ export default function Channels() {
               autoFocus
             />
           </Field>
-          <Field label="Quantidade máxima de clips">
+          <Field label={t("channels.max_clips_label")}>
             <input
               type="number"
               min={1}
@@ -367,22 +369,22 @@ export default function Channels() {
               onClick={() => setGlobalVideoModal(false)}
               className="px-4 py-2 text-sm rounded-lg bg-gray-800 hover:bg-gray-700"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               onClick={runGlobalVideo}
               disabled={!videoUrl.trim() || runningId === "manual"}
               className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
             >
-              Processar
+              {t("common.process")}
             </button>
           </div>
         </Modal>
       )}
 
       {showModal && (
-        <Modal title={editing ? "Editar canal" : "Novo canal"} onClose={close}>
-          <Field label="URL do canal YouTube">
+        <Modal title={editing ? t("channels.edit_channel") : t("channels.new_channel")} onClose={close}>
+          <Field label={t("channels.url_placeholder")}>
             <input
               className={inp}
               placeholder="https://www.youtube.com/@canal/streams"
@@ -391,7 +393,7 @@ export default function Channels() {
             />
           </Field>
 
-          <Field label="Nome (opcional)">
+          <Field label={t("channels.name_optional")}>
             <input
               className={inp}
               placeholder="Meu Podcast"
@@ -400,7 +402,7 @@ export default function Channels() {
             />
           </Field>
 
-          <Field label="Formatos">
+          <Field label={t("channels.formats")}>
             <div className="flex gap-3">
               {["short", "long"].map((f) => (
                 <label key={f} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -410,14 +412,14 @@ export default function Channels() {
                     onChange={() => toggleFormat(f)}
                     className="accent-red-500"
                   />
-                  {f === "short" ? "Shorts (9:16)" : "Longos (16:9)"}
+                  {f === "short" ? "Shorts (9:16)" : (t("en") === "en" ? "Longs (16:9)" : "Longos (16:9)")}
                 </label>
               ))}
             </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Horário de análise">
+            <Field label={t("channels.analysis_time")}>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -436,10 +438,10 @@ export default function Channels() {
                   onChange={(e) => set("job_minute", Number(e.target.value))}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">hora : minuto</p>
+              <p className="text-xs text-gray-500 mt-1">{t("channels.hour_min_help")}</p>
             </Field>
 
-            <Field label="Horário de upload YT">
+            <Field label={t("channels.upload_time")}>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -458,11 +460,11 @@ export default function Channels() {
                   onChange={(e) => set("upload_minute", Number(e.target.value))}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">hora : minuto</p>
+              <p className="text-xs text-gray-500 mt-1">{t("channels.hour_min_help")}</p>
             </Field>
           </div>
 
-          <Field label={`Max clips por execução: ${form.max_clips}`}>
+          <Field label={`${t("channels.max_clips")}: ${form.max_clips}`}>
             <input
               type="range"
               min={1}
@@ -473,7 +475,7 @@ export default function Channels() {
             />
           </Field>
 
-          <Field label="Ativo">
+          <Field label={t("channels.active")}>
             <label className="flex items-center gap-2 cursor-pointer">
               <div
                 onClick={() => set("active", !form.active)}
@@ -487,7 +489,7 @@ export default function Channels() {
                   }`}
                 />
               </div>
-              <span className="text-sm">{form.active ? "Ativo" : "Inativo"}</span>
+              <span className="text-sm">{form.active ? t("channels.active") : t("channels.inactive")}</span>
             </label>
           </Field>
 
@@ -496,13 +498,13 @@ export default function Channels() {
               onClick={close}
               className="px-4 py-2 text-sm rounded-lg bg-gray-800 hover:bg-gray-700"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               onClick={save}
               className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white"
             >
-              Salvar
+              {t("common.save")}
             </button>
           </div>
         </Modal>

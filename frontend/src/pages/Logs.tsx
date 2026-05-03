@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface LogEntry {
   ts: string;
@@ -19,6 +20,7 @@ const LEVEL_BADGE: Record<string, string> = {
 };
 
 export default function Logs() {
+  const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [filterLevel, setFilterLevel] = useState<string>("");
   const [autoScroll, setAutoScroll] = useState(true);
@@ -57,13 +59,13 @@ export default function Logs() {
 
   const fmt = (iso: string) => {
     const d = new Date(iso);
-    return d.toLocaleTimeString("pt-BR", { hour12: false });
+    return d.toLocaleTimeString(i18n.language === 'pt' ? 'pt-BR' : 'en-US', { hour12: false });
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Logs</h1>
+        <h1 className="text-2xl font-bold">{t("logs.title")}</h1>
 
         <div className="flex gap-2">
           <select
@@ -71,7 +73,7 @@ export default function Logs() {
             value={filterLevel}
             onChange={(e) => setFilterLevel(e.target.value)}
           >
-            <option value="">Todos</option>
+            <option value="">{t("logs.all")}</option>
             <option value="INFO">INFO</option>
             <option value="WARNING">WARNING</option>
             <option value="ERROR">ERROR</option>
@@ -84,21 +86,21 @@ export default function Logs() {
               onChange={(e) => setAutoScroll(e.target.checked)}
               className="accent-red-500"
             />
-            Auto-scroll
+            {t("logs.auto_scroll")}
           </label>
 
           <button
             onClick={clear}
             className="text-sm px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700"
           >
-            Limpar
+            {t("logs.clear")}
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto bg-gray-950 border border-gray-800 rounded-xl p-3 font-mono text-xs">
         {visible.length === 0 ? (
-          <p className="text-gray-600 mt-4 text-center">Aguardando logs...</p>
+          <p className="text-gray-600 mt-4 text-center">{t("logs.waiting")}</p>
         ) : (
           visible.map((entry, i) => (
             <div key={i} className="flex gap-2 mb-0.5 hover:bg-gray-900/50 px-1 rounded">
